@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-kia-black: #05141f;
+  --color-kia-navy: #05141f;
+  --color-kia-navy-hover: #1a3348;
+  --color-kia-error: #bb162b;
+  --color-kia-line: #e5e5e5;
+  --color-kia-muted: #5c5c5c;
+  --color-kia-placeholder: #9a9a9a;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-kia-black);
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
