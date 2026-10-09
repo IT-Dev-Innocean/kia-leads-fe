@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ConsentNotes } from '@/components/ConsentNotes';
 import { LeadForm, type LeadSubmission } from '@/components/LeadForm';
 import { SuccessState } from '@/components/SuccessState';
 
@@ -10,9 +11,13 @@ export default function App() {
     <div className='flex min-h-svh flex-col bg-white'>
       <main className='mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-8 pb-10'>
         <img src='/kia-logo.svg' alt='Kia' className='mx-auto h-12 w-auto' />
-        <p className='mt-4 text-center text-sm leading-6 text-kia-muted'>
+        {/* <p className='mt-4 text-center text-sm leading-6 text-kia-muted'>
           Isi form ini untuk mengajukan penawaran harga dan dihubungi oleh
           dealer Kia Indonesia.
+        </p> */}
+
+        <p className='mt-4 text-center text-sm leading-6 text-kia-muted'>
+          Isi form ini untuk mengajukan penawaran harga
         </p>
 
         <AnimatePresence mode='wait'>
@@ -33,6 +38,7 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.4, ease: 'easeOut' }}>
               <LeadForm onSuccess={setSubmission} />
+              <ConsentNotes />
             </motion.div>
           )}
         </AnimatePresence>

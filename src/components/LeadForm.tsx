@@ -1,32 +1,18 @@
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  formatAddress,
-  getCities,
-  getDealerByCode,
-  getDealers,
-  getProvinces,
-  PRIVACY_POLICY_URL,
-} from '@/data/dealers';
+import { Controller, useForm, type Control } from 'react-hook-form';
+import { getCities, getProvinces, type Region } from '@/data/wilayah';
 import { cn, normalizePhone } from '@/lib/utils';
 import { leadSchema, type LeadFormValues } from '@/lib/validation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  DealerSelectItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 export type LeadSubmission = {
-  firstName: string;
-  lastName: string;
-  dealerName: string;
-  address: string;
-  phone: string | null;
+  fullName: string;
+  provinceName: string;
+  cityName: string;
 };
 
 type LeadFormProps = {
@@ -46,43 +32,112 @@ export function LeadForm({ onSuccess }: LeadFormProps) {
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
+      fullName: '',
       email: '',
       phone: '',
       province: '',
       city: '',
-      dealer: '',
-      consent: false,
+      crossBorderConsent: false,
+      collectionPurposeConsent: false,
+      thirdPartyConsent: false,
+      marketingEmail: false,
+      marketingSms: false,
+      marketingPhone: false,
     },
   });
 
   const province = watch('province');
-  const city = watch('city');
-  const cities = province ? getCities(province) : [];
-  const dealerOptions = province && city ? getDealers(province, city) : [];
+  const marketingEmail = watch('marketingEmail');
+  const marketingSms = watch('marketingSms');
+  const marketingPhone = watch('marketingPhone');
+  const marketingValues = [marketingEmail, marketingSms, marketingPhone];
+  const allMarketingChecked = marketingValues.every(Boolean);
+  const marketingState = allMarketingChecked
+    ? true
+    : marketingValues.some(Boolean)
+      ? 'indeterminate'
+      : false;
+  const [provinces, setProvinces] = useState<Region[]>([]);
+  const [cities, setCities] = useState<Region[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(true);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [regionError, setRegionError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    getProvinces()
+      .then((items) => {
+        if (active) setProvinces(items);
+      })
+      .catch(() => {
+        if (active) setRegionError('Data provinsi gagal dimuat.');
+      })
+      .finally(() => {
+        if (active) setLoadingProvinces(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!province) {
+      setCities([]);
+      setLoadingCities(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingCities(true);
+    setRegionError('');
+
+    getCities(province)
+      .then((items) => {
+        if (active) setCities(items);
+      })
+      .catch(() => {
+        if (active) {
+          setCities([]);
+          setRegionError('Data kota gagal dimuat.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingCities(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [province]);
 
   function changeProvince(value: string) {
     setValue('province', value, { shouldValidate: true });
     setValue('city', '', { shouldValidate: isSubmitted });
-    setValue('dealer', '', { shouldValidate: isSubmitted });
   }
 
   function changeCity(value: string) {
     setValue('city', value, { shouldValidate: true });
-    setValue('dealer', '', { shouldValidate: isSubmitted });
+  }
+
+  function setMarketingConsent(checked: boolean) {
+    setValue('marketingEmail', checked, { shouldDirty: true });
+    setValue('marketingSms', checked, { shouldDirty: true });
+    setValue('marketingPhone', checked, { shouldDirty: true });
   }
 
   function onSubmit(values: LeadFormValues) {
-    const dealer = getDealerByCode(values.dealer);
-    if (!dealer) return;
+    const provinceName = provinces.find(
+      (item) => item.id === values.province
+    )?.name;
+    const cityName = cities.find((item) => item.id === values.city)?.name;
+    if (!provinceName || !cityName) return;
 
     onSuccess({
-      firstName: values.firstName,
-      lastName: values.lastName,
-      dealerName: dealer.name,
-      address: formatAddress(dealer),
-      phone: dealer.phone,
+      fullName: values.fullName,
+      provinceName,
+      cityName,
     });
   }
 
@@ -90,36 +145,18 @@ export function LeadForm({ onSuccess }: LeadFormProps) {
     <form className='mt-6' onSubmit={handleSubmit(onSubmit)} noValidate>
       <div className='space-y-4 rounded-md border border-kia-line bg-white px-4 py-5 sm:px-5'>
         <div className={fieldClass}>
-          <Label htmlFor='firstName' required>
-            Nama depan
+          <Label htmlFor='fullName' required>
+            Nama lengkap
           </Label>
           <Input
-            id='firstName'
-            autoComplete='given-name'
-            placeholder='Masukkan nama depan Anda'
-            aria-invalid={!!errors.firstName}
-            aria-describedby={errors.firstName ? 'firstName-error' : undefined}
-            {...register('firstName')}
+            id='fullName'
+            autoComplete='name'
+            placeholder='Masukkan nama lengkap Anda'
+            aria-invalid={!!errors.fullName}
+            aria-describedby={errors.fullName ? 'fullName-error' : undefined}
+            {...register('fullName')}
           />
-          <FieldError
-            id='firstName-error'
-            message={errors.firstName?.message}
-          />
-        </div>
-
-        <div className={fieldClass}>
-          <Label htmlFor='lastName' required>
-            Nama belakang
-          </Label>
-          <Input
-            id='lastName'
-            autoComplete='family-name'
-            placeholder='Masukkan nama belakang Anda'
-            aria-invalid={!!errors.lastName}
-            aria-describedby={errors.lastName ? 'lastName-error' : undefined}
-            {...register('lastName')}
-          />
-          <FieldError id='lastName-error' message={errors.lastName?.message} />
+          <FieldError id='fullName-error' message={errors.fullName?.message} />
         </div>
 
         <div className={fieldClass}>
@@ -181,29 +218,22 @@ export function LeadForm({ onSuccess }: LeadFormProps) {
             name='province'
             control={control}
             render={({ field }) => (
-              <Select
-                value={field.value || undefined}
-                onValueChange={changeProvince}>
-                <SelectTrigger
-                  id='province'
-                  aria-invalid={!!errors.province}
-                  aria-describedby={
-                    errors.province ? 'province-error' : undefined
-                  }
-                  onBlur={field.onBlur}>
-                  <SelectLabel
-                    value={field.value}
-                    placeholder='Silakan pilih provinsi.'
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {getProvinces().map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id='province'
+                value={field.value}
+                options={provinces}
+                placeholder={
+                  loadingProvinces
+                    ? 'Memuat provinsi...'
+                    : 'Silakan pilih provinsi.'
+                }
+                searchPlaceholder='Cari provinsi'
+                disabled={loadingProvinces || provinces.length === 0}
+                invalid={!!errors.province}
+                describedBy={errors.province ? 'province-error' : undefined}
+                onChange={changeProvince}
+                onBlur={field.onBlur}
+              />
             )}
           />
           <FieldError id='province-error' message={errors.province?.message} />
@@ -217,116 +247,107 @@ export function LeadForm({ onSuccess }: LeadFormProps) {
             name='city'
             control={control}
             render={({ field }) => (
-              <Select
+              <SearchableSelect
                 key={province || 'kota'}
-                value={field.value || undefined}
-                onValueChange={changeCity}
-                disabled={!province}>
-                <SelectTrigger
-                  id='city'
-                  aria-invalid={!!errors.city}
-                  aria-describedby={errors.city ? 'city-error' : undefined}
-                  onBlur={field.onBlur}>
-                  <SelectLabel value={field.value} placeholder='Pilih kota' />
-                </SelectTrigger>
-                <SelectContent>
-                  {cities.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                id='city'
+                value={field.value}
+                options={cities}
+                placeholder={loadingCities ? 'Memuat kota...' : 'Pilih kota'}
+                searchPlaceholder='Cari kota'
+                disabled={!province || loadingCities}
+                invalid={!!errors.city}
+                describedBy={errors.city ? 'city-error' : undefined}
+                onChange={changeCity}
+                onBlur={field.onBlur}
+              />
             )}
           />
           <FieldError id='city-error' message={errors.city?.message} />
+          {regionError ? (
+            <p className='text-[11px] text-kia-error'>{regionError}</p>
+          ) : null}
         </div>
 
-        <div className={fieldClass}>
-          <Label htmlFor='dealer' required>
-            Dealer
-          </Label>
-          <Controller
-            name='dealer'
-            control={control}
-            render={({ field }) => (
-              <Select
-                key={`${province}-${city}`}
-                value={field.value || undefined}
-                onValueChange={(value) =>
-                  setValue('dealer', value, { shouldValidate: true })
+        <div className='space-y-3 border-t border-kia-line pt-4'>
+          <div>
+            <p className='text-sm font-bold text-kia-black'>
+              Informasi Persetujuan
+            </p>
+            <p className='mt-2 text-[12px] leading-5 text-kia-black'>
+              <span className='text-kia-error' aria-hidden='true'>
+                *{' '}
+              </span>
+              Pernyataan yang menginformasikan kepada pengguna mengenai masa
+              penyimpanan data Kia dan hak untuk meminta penghapusan atau akses
+              sesuai dengan hukum yang berlaku.
+            </p>
+            <p className='mt-3 text-[13px] leading-5 text-kia-black'>
+              Silakan berikan persetujuan untuk hal-hal berikut:
+            </p>
+          </div>
+
+          <div className='space-y-2.5'>
+            <ConsentField
+              id='crossBorderConsent'
+              name='crossBorderConsent'
+              label='Persetujuan Transfer Data Lintas Batas (Wajib)'
+              control={control}
+              error={errors.crossBorderConsent?.message}
+            />
+            <ConsentField
+              id='collectionPurposeConsent'
+              name='collectionPurposeConsent'
+              label='Persetujuan Tujuan Pengumpulan Data (Wajib)'
+              control={control}
+              error={errors.collectionPurposeConsent?.message}
+            />
+            <ConsentField
+              id='thirdPartyConsent'
+              name='thirdPartyConsent'
+              label='Persetujuan Pengungkapan kepada Pihak Ketiga (Wajib)'
+              control={control}
+              error={errors.thirdPartyConsent?.message}
+            />
+
+            <div className='flex items-start gap-2.5'>
+              <Checkbox
+                id='marketingConsent'
+                checked={marketingState}
+                onCheckedChange={(checked) =>
+                  setMarketingConsent(checked === true)
                 }
-                disabled={!city}>
-                <SelectTrigger
-                  id='dealer'
-                  aria-invalid={!!errors.dealer}
-                  aria-describedby={errors.dealer ? 'dealer-error' : undefined}
-                  onBlur={field.onBlur}>
-                  <SelectLabel
-                    value={getDealerByCode(field.value)?.name}
-                    placeholder='Pilih dealer'
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {dealerOptions.map((dealer) => (
-                    <DealerSelectItem
-                      key={dealer.code}
-                      value={dealer.code}
-                      name={dealer.name}
-                      detail={formatAddress(dealer)}
-                    />
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          <FieldError id='dealer-error' message={errors.dealer?.message} />
-        </div>
+              />
+              <label
+                htmlFor='marketingConsent'
+                className='text-[13px] leading-5 text-kia-black'>
+                Persetujuan Pemasaran (Opsional)
+              </label>
+            </div>
 
-        <div className='pt-2'>
-          <p className='text-center text-xs font-bold tracking-wide text-kia-navy'>
-            PERNYATAAN PRIVASI KAMI
-          </p>
-          <Controller
-            name='consent'
-            control={control}
-            render={({ field }) => (
-              <div className='mt-3 flex items-start gap-3'>
-                <Checkbox
-                  id='consent'
-                  checked={field.value}
-                  onCheckedChange={(checked) =>
-                    field.onChange(checked === true)
-                  }
-                  onBlur={field.onBlur}
-                  aria-invalid={!!errors.consent}
-                  aria-describedby={
-                    errors.consent ? 'consent-error' : undefined
-                  }
-                />
-                <label
-                  htmlFor='consent'
-                  className='text-[13px] leading-5 text-kia-black'>
-                  Saya menyetujui data saya disimpan dan diproses sesuai dengan
-                  Ketentuan Penggunaan dan{' '}
-                  <a
-                    href={PRIVACY_POLICY_URL}
-                    target='_blank'
-                    rel='noreferrer'
-                    className='font-semibold text-kia-navy underline underline-offset-2'
-                    onClick={(event) => event.stopPropagation()}>
-                    Kebijakan Privasi
-                  </a>{' '}
-                  dari Kia Indonesia.
-                  {/* <span className="text-kia-error" aria-hidden="true">
-                    {" "}
-                    *
-                  </span> */}
-                </label>
-              </div>
-            )}
-          />
-          <FieldError id='consent-error' message={errors.consent?.message} />
+            <div className='space-y-2 pl-6'>
+              <ConsentField
+                id='marketingEmail'
+                name='marketingEmail'
+                label='Saya setuju menerima pemasaran melalui Email (Opsional)'
+                control={control}
+                muted
+              />
+              <ConsentField
+                id='marketingSms'
+                name='marketingSms'
+                label='Saya setuju menerima pemasaran melalui SMS (Opsional)'
+                control={control}
+                muted
+              />
+              <ConsentField
+                id='marketingPhone'
+                name='marketingPhone'
+                label='Saya setuju menerima pemasaran melalui Telepon (Opsional)'
+                control={control}
+                muted
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -339,17 +360,57 @@ export function LeadForm({ onSuccess }: LeadFormProps) {
   );
 }
 
-function SelectLabel({
-  value,
-  placeholder,
+function ConsentField({
+  id,
+  name,
+  label,
+  control,
+  error,
+  muted = false,
 }: {
-  value?: string;
-  placeholder: string;
+  id: string;
+  name:
+    | 'crossBorderConsent'
+    | 'collectionPurposeConsent'
+    | 'thirdPartyConsent'
+    | 'marketingEmail'
+    | 'marketingSms'
+    | 'marketingPhone';
+  label: string;
+  control: Control<LeadFormValues>;
+  error?: string;
+  muted?: boolean;
 }) {
   return (
-    <span className={cn('truncate', !value && 'text-kia-placeholder')}>
-      {value || placeholder}
-    </span>
+    <div>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field }) => (
+          <div className='flex items-start gap-2.5'>
+            <Checkbox
+              id={id}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+              onBlur={field.onBlur}
+              aria-invalid={!!error}
+              aria-required={!muted}
+              aria-describedby={error ? `${id}-error` : undefined}
+              className={muted ? 'border-[#d5d5d5]' : undefined}
+            />
+            <label
+              htmlFor={id}
+              className={cn(
+                'text-[13px] leading-5',
+                muted ? 'text-[#a3a3a3]' : 'text-kia-black'
+              )}>
+              {label}
+            </label>
+          </div>
+        )}
+      />
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
   );
 }
 

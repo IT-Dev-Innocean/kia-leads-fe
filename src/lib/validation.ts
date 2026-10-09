@@ -1,16 +1,11 @@
 import { z } from "zod"
 
 export const leadSchema = z.object({
-  firstName: z
+  fullName: z
     .string()
     .trim()
-    .min(1, "Masukkan nama depan Anda")
-    .max(60, "Nama depan terlalu panjang"),
-  lastName: z
-    .string()
-    .trim()
-    .min(1, "Masukkan nama belakang Anda")
-    .max(60, "Nama belakang terlalu panjang"),
+    .min(1, "Masukkan nama lengkap Anda")
+    .max(120, "Nama lengkap terlalu panjang"),
   email: z
     .string()
     .trim()
@@ -22,10 +17,18 @@ export const leadSchema = z.object({
     .regex(/^8\d{8,12}$/, "Masukkan nomor telepon yang valid"),
   province: z.string().min(1, "Silakan pilih provinsi."),
   city: z.string().min(1, "Silakan pilih kota"),
-  dealer: z.string().min(1, "Silakan pilih dealer"),
-  consent: z.boolean().refine((value) => value, {
-    message: "Anda harus membaca dan menerima ketentuan.",
+  crossBorderConsent: z.boolean().refine((value) => value, {
+    message: "Wajib diisi",
   }),
+  collectionPurposeConsent: z.boolean().refine((value) => value, {
+    message: "Wajib diisi",
+  }),
+  thirdPartyConsent: z.boolean().refine((value) => value, {
+    message: "Wajib diisi",
+  }),
+  marketingEmail: z.boolean(),
+  marketingSms: z.boolean(),
+  marketingPhone: z.boolean(),
 })
 
 export type LeadFormValues = z.infer<typeof leadSchema>
